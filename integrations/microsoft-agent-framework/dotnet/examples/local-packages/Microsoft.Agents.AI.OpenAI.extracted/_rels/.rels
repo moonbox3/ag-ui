@@ -1,5 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
-  <Relationship Type="http://schemas.microsoft.com/packaging/2010/07/manifest" Target="/Microsoft.Agents.AI.OpenAI.nuspec" Id="R9EC2DBD42F945544" />
-  <Relationship Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="/package/services/metadata/core-properties/1b83b235349f4d41b3c4a99b00662056.psmdcp" Id="RD79D64B07AE612AE" />
-</Relationships>

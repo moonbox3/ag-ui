@@ -1,12 +1,15 @@
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
+using System.Threading;
 using Azure.AI.OpenAI;
 using Azure.Identity;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Configuration;
 using OpenAI;
+using OpenAI.Chat;
+using ChatResponseFormat = Microsoft.Extensions.AI.ChatResponseFormat;
 
 namespace AGUIDojoServer;
 
@@ -27,7 +30,7 @@ internal sealed class ChatClientAgentFactory
 
         if (string.IsNullOrWhiteSpace(deploymentName))
         {
-            throw new InvalidOperationException("AZURE_OPENAI_CHAT_DEPLOYMENT_NAME must be provided in the environment or configuration.");
+            throw new InvalidOperationException("AZURE_OPENAI_DEPLOYMENT_NAME must be provided in the environment or configuration.");
         }
 
         _azureOpenAIClient = new AzureOpenAIClient(new Uri(endpoint), new DefaultAzureCredential());
@@ -84,18 +87,57 @@ internal sealed class ChatClientAgentFactory
             tools: [uiComponentTool]);
     }
 
-    public ChatClientAgent CreateSharedState()
+    public AIAgent CreateSharedState()
     {
-        var recipeTool = AIFunctionFactory.Create(
-            ([Description("The recipe name")] string recipeName) => BuildRecipe(recipeName),
-            name: "load_recipe",
-            description: "Load a recipe with ingredients and steps so the dojo shared state can be updated.",
-            serializerOptions: AGUIDojoServerSerializerContext.Default.Options);
+        ChatClient chatClient = _azureOpenAIClient.GetChatClient(_deploymentName);
 
-        return CreateAgent(
-            name: "maf-shared-state",
-            description: "Synchronise recipe state with the client. Always call the load_recipe tool when the user picks a dish and describe how the state changed.",
-            tools: [recipeTool]);
+        ChatClientAgent baseAgent = chatClient.AsIChatClient().CreateAIAgent(
+            name: "SharedStateAgent",
+            description: "An agent that demonstrates shared state patterns using Azure OpenAI");
+
+        // Wrap the agent with middleware to conditionally configure JSON schema response format
+        return baseAgent
+            .AsBuilder()
+            .Use(runFunc: null, runStreamingFunc: CustomAgentRunStreamingMiddlewareAsync)
+            .Build();
+    }
+
+    /// <summary>
+    /// Middleware that conditionally configures JSON schema response format for the shared state agent.
+    /// </summary>
+    private static IAsyncEnumerable<AgentRunResponseUpdate> CustomAgentRunStreamingMiddlewareAsync(
+        IEnumerable<Microsoft.Extensions.AI.ChatMessage> messages,
+        AgentThread? thread,
+        AgentRunOptions? options,
+        AIAgent innerAgent,
+        CancellationToken cancellationToken)
+    {
+        // Only try to enhance if these castings work
+        if (options is ChatClientAgentRunOptions chatRunOptions && chatRunOptions.ChatOptions is ChatOptions chatOptions)
+        {
+            // If ChatOptions are already configured to emit JSON, update the response format with the schema.
+            if (ShouldEmitJson(chatOptions))
+            {
+                // Set the JSON schema RESPONSE format
+                chatOptions.ResponseFormat = ChatResponseFormat.ForJsonSchema<RecipeResponse>(
+                    schemaName: "RecipeResponse",
+                    schemaDescription: "A structured recipe with title, skill level, cooking time, preferences, ingredients, and instructions");
+            }
+        }
+
+        // Call the inner agent with possibly altered options
+        return innerAgent.RunStreamingAsync(messages, thread, options, cancellationToken);
+    }
+
+    /// <summary>
+    /// Predicate that identifies if options are set to emit JSON natively.
+    /// </summary>
+    /// <param name="options">The ChatOptions to check.</param>
+    /// <returns>True if the options are configured for JSON output without a schema; otherwise, false.</returns>
+    private static bool ShouldEmitJson(ChatOptions options)
+    {
+        // Check if ResponseFormat is set for JSON, but not with a schema yet
+        return options.ResponseFormat == ChatResponseFormat.Json;
     }
 
     public ChatClientAgent CreatePredictiveStateUpdates()

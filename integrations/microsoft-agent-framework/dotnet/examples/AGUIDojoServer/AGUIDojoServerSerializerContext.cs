@@ -3,6 +3,9 @@ using System.Text.Json.Serialization;
 namespace AGUIDojoServer;
 
 [JsonSerializable(typeof(WeatherInfo))]
+[JsonSerializable(typeof(RecipeResponse))]
+[JsonSerializable(typeof(Recipe))]
+[JsonSerializable(typeof(Ingredient))]
 [JsonSerializable(typeof(TaskPlan))]
 [JsonSerializable(typeof(TaskPlanStep))]
 [JsonSerializable(typeof(UiComponentResponse))]

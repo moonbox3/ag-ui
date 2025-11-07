@@ -22,18 +22,10 @@ If you prefer to use `appsettings.Development.json` or user secrets you can plac
 ```powershell
 cd integrations/microsoft-agent-framework/dotnet/examples
 dotnet restore AGUIDojoServer/AGUIDojoServer.csproj
-dotnet run --project AGUIDojoServer/AGUIDojoServer.csproj --urls "http://localhost:8889" --no-build
+dotnet run
 ```
-
-The server listens on `http://localhost:8889` by default. Update the port if it conflicts with another service.
-
 ## Connect from the AG-UI Dojo
 
-Update (or create) an environment variable before starting the dojo frontend:
-
-```powershell
-$env:AGENT_FRAMEWORK_DOTNET_URL="http://localhost:8889"
-```
 
 The dojo will then display a **Microsoft Agent Framework (Dotnet)** entry alongside the existing Python integration. Each endpoint demonstrates a different AG-UI capability:
 
